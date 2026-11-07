@@ -895,10 +895,9 @@ impl CadApp {
         let t0 = now_ms();
         control::begin_frame(ui.ctx());
         let t = theme::Tokens::get();
+        // Application bar, then the menu bar (when shown), then the ribbon, as the Windows
+        // workspace stacks them.
         ribbon::title_and_ribbon(self, ui);
-        if self.ui.in_window_menu {
-            menus::menu_bar(self, ui);
-        }
         if self.ui.show_status_bar {
             chrome::status_bar(self, ui);
         }

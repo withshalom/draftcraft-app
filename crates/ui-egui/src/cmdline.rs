@@ -474,9 +474,10 @@ pub fn show(app: &mut CadApp, ui: &mut egui::Ui, canvas: Rect) {
     }
     p.rect_filled(bar, 3.0, t.cmd_bg);
     p.rect_stroke(bar, 3.0, Stroke::new(1.0, t.cmd_border), egui::StrokeKind::Inside);
+    let left = grip(app, ui, &p, bar);
     // Prompt glyph.
-    p.text(pos2(bar.left() + 8.0, bar.center().y), egui::Align2::LEFT_CENTER, ">_", crate::theme::mono(), t.text_dim);
-    let mut x = bar.left() + 30.0;
+    p.text(pos2(left + 8.0, bar.center().y), egui::Align2::LEFT_CENTER, ">_", crate::theme::mono(), t.text_dim);
+    let mut x = left + 30.0;
     let prompt = app.session.current_prompt();
     let font = crate::theme::body();
     match &prompt {
@@ -590,10 +591,10 @@ pub fn show(app: &mut CadApp, ui: &mut egui::Ui, canvas: Rect) {
             let rh = 20.0;
             let lr = Rect::from_min_size(
                 pos2(
-                    bar.left() + 24.0,
+                    bar.left() + GRIP + 24.0,
                     bar.top() - 6.0 - rh * sug.len() as f32 - (if lines.is_empty() { 0.0 } else { 16.0 * lines.len() as f32 + 6.0 }),
                 ),
-                vec2((bar.width() - 24.0).max(0.0), rh * sug.len() as f32),
+                vec2((bar.width() - GRIP - 24.0).max(0.0), rh * sug.len() as f32),
             );
             p.rect_filled(lr, 3.0, t.list_bg);
             p.rect_stroke(lr, 3.0, Stroke::new(1.0, t.cmd_border), egui::StrokeKind::Inside);
@@ -618,6 +619,54 @@ pub fn show(app: &mut CadApp, ui: &mut egui::Ui, canvas: Rect) {
             }
         }
     }
+}
+
+/// Width of the darker grip at the command line's left end.
+const GRIP: f32 = 46.0;
+
+/// The darker grip at the command line's left end, as the Windows command line has it: Close
+/// (hides the command line; Window > Command Line or Cmd+9 brings it back) and Customize (a
+/// menu of command-line settings). Returns where the rest of the bar starts.
+fn grip(app: &mut CadApp, ui: &mut egui::Ui, p: &egui::Painter, bar: Rect) -> f32 {
+    let t = Tokens::get();
+    let g = Rect::from_min_size(bar.min, vec2(GRIP, bar.height()));
+    p.rect_filled(g, egui::CornerRadius { nw: 3, sw: 3, ne: 0, se: 0 }, t.cmd_history);
+    p.line_segment([g.right_top(), g.right_bottom()], Stroke::new(1.0, t.cmd_border));
+    let close = Rect::from_center_size(pos2(g.left() + 12.0, g.center().y), vec2(18.0, 18.0));
+    let custom = Rect::from_center_size(pos2(g.left() + 32.0, g.center().y), vec2(18.0, 18.0));
+    let rc = ui
+        .interact(close, ui.scope_id().with("cmdline_close"), Sense::click())
+        .on_hover_text(crate::tl!("Close the command line (Cmd+9 shows it again)"));
+    let ru = ui.interact(custom, ui.scope_id().with("cmdline_customize"), Sense::click()).on_hover_text(crate::tl!("Customize"));
+    for (r, resp, icon) in [(close, &rc, crate::icons::Icon::Close), (custom, &ru, crate::icons::Icon::Gear)] {
+        if resp.hovered() {
+            p.rect_filled(r, 2.0, t.cmd_keyword_hover);
+        }
+        crate::icons::paint(p, r.shrink(3.0), icon, false);
+    }
+    let mut run = None;
+    egui::Popup::menu(&ru).show(|ui| {
+        for (id, label) in [("ui.toggle.history", "Command History"), ("ui.toggle.cmdline", "Hide Command Line"), ("options", "Options…")] {
+            if ui.button(crate::i18n::t(label)).clicked() {
+                run = Some(id);
+                ui.close();
+            }
+        }
+    });
+    if rc.clicked() {
+        run = Some("ui.toggle.cmdline.off");
+    }
+    match run {
+        Some("ui.toggle.cmdline.off") | Some("ui.toggle.cmdline") => {
+            let _ = app.run("ui.toggle.cmdline", serde_json::json!({ "on": false }));
+        }
+        Some("options") => app.start("options"),
+        Some(id) => {
+            let _ = app.run(id, serde_json::json!({}));
+        }
+        None => {}
+    }
+    g.right()
 }
 
 /// The command line's areas, laid out like [`show`] draws them.

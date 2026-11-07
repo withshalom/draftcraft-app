@@ -157,7 +157,7 @@ pub(crate) const TABS: &[RibbonTab] = &[
                 cols: &[
                     Small(&[b(Icon::Move, "move", "Move"), b(Icon::Copy, "copy", "Copy"), b(Icon::Stretch, "stretch", "Stretch")]),
                     Small(&[b(Icon::Rotate, "rotate", "Rotate"), b(Icon::Mirror, "mirror", "Mirror"), b(Icon::Scale, "scale", "Scale")]),
-                    Icons(&[
+                    Small(&[
                         d(Icon::Trim, "trim", "Trim", TRIM_MORE),
                         d(Icon::Fillet, "fillet", "Fillet", FILLET_MORE),
                         d(Icon::ArrayRect, "arrayrect", "Array", ARRAY_MORE),
@@ -902,6 +902,8 @@ fn paint_variant(p: &egui::Painter, r: Rect, cmd: &str) -> bool {
 #[derive(Default)]
 struct Out {
     command: Option<&'static str>,
+    /// A recent document chosen in the application menu.
+    open: Option<String>,
     layer: Option<String>,
     run: Option<(&'static str, serde_json::Value)>,
     typed: Option<String>,
@@ -921,13 +923,21 @@ pub fn title_and_ribbon(app: &mut CadApp, ui: &mut egui::Ui) {
     let t = Tokens::get();
     let ribbon_h = if app.ui.show_toolbar { TAB_ROW + if app.ui.ribbon_minimized { 0.0 } else { BODY + PANEL_TITLE + 4.0 } } else { 0.0 };
     let mut out = Out::default();
-    egui::Panel::top("cc_title_ribbon").exact_size(APP_BAR + ribbon_h).frame(egui::Frame::NONE.fill(bar_color(&t))).show(ui, |ui| {
+    egui::Panel::top("cc_title_ribbon").exact_size(APP_BAR).frame(egui::Frame::NONE.fill(bar_color(&t))).show(ui, |ui| {
         let r = ui.max_rect();
         app_bar(app, ui, Rect::from_min_size(r.min, vec2(r.width(), APP_BAR)), &mut out);
-        if ribbon_h > 0.0 {
-            ribbon(app, ui, Rect::from_min_max(pos2(r.left(), r.top() + APP_BAR), r.max), &mut out);
-        }
     });
+    // The menu bar sits between the application bar and the ribbon tabs, where the Windows
+    // workspace shows it when it's switched on.
+    if app.ui.in_window_menu {
+        crate::menus::menu_bar(app, ui);
+    }
+    if ribbon_h > 0.0 {
+        egui::Panel::top("cc_ribbon").exact_size(ribbon_h).frame(egui::Frame::NONE.fill(bar_color(&t))).show(ui, |ui| {
+            let r = ui.max_rect();
+            ribbon(app, ui, r, &mut out);
+        });
+    }
     if let Some(name) = out.layer {
         let _ = app.run("layer.current", json!({ "name": name }));
     }
@@ -942,7 +952,13 @@ pub fn title_and_ribbon(app: &mut CadApp, ui: &mut egui::Ui) {
     if let Some(cmd) = out.command {
         app.start(cmd);
     }
+    if let Some(path) = out.open {
+        app.open_path(std::path::Path::new(&path));
+    }
 }
+
+/// Most recent documents listed in the application menu.
+const RECENT_DOCS: usize = 9;
 
 fn app_bar(app: &mut CadApp, ui: &mut egui::Ui, bar: Rect, out: &mut Out) {
     let t = Tokens::get();
@@ -958,11 +974,34 @@ fn app_bar(app: &mut CadApp, ui: &mut egui::Ui, bar: Rect, out: &mut Out) {
     let aresp = ui.interact(ab, ui.scope_id().with("app_button"), Sense::click());
     paint_app_button(&p, ab, aresp.hovered());
     icons::describe_control(ui, &aresp, "Application Menu", None, false);
+    let recent: Vec<String> = app.ui.recent_files.iter().take(RECENT_DOCS).cloned().collect();
     egui::Popup::menu(&aresp).show(|ui| {
         let tools: Vec<Tool> = APP_MENU.to_vec();
-        if let Some(c) = tool_menu(ui, &tools) {
-            out.command = Some(c);
-        }
+        // The commands on the left, the recent documents on the right, as the Windows
+        // application menu lays them out.
+        ui.horizontal_top(|ui| {
+            ui.vertical(|ui| {
+                if let Some(c) = tool_menu(ui, &tools) {
+                    out.command = Some(c);
+                }
+            });
+            ui.separator();
+            ui.vertical(|ui| {
+                ui.set_min_width(240.0);
+                ui.label(egui::RichText::new(crate::tl!("Recent Documents")).strong());
+                ui.add_space(4.0);
+                if recent.is_empty() {
+                    ui.label(egui::RichText::new(crate::tl!("No recent documents")).weak());
+                }
+                for path in &recent {
+                    let name = crate::menus::file_name(path);
+                    if ui.add(egui::Button::new(name).frame(false)).on_hover_text(path.as_str()).clicked() {
+                        out.open = Some(path.clone());
+                        ui.close();
+                    }
+                }
+            });
+        });
         ui.separator();
         // Options and Exit as framed buttons at the bottom right, as the Windows application menu has them.
         // Only as wide as the entries above: a popup's own width is unbounded.
@@ -1061,37 +1100,55 @@ fn app_bar(app: &mut CadApp, ui: &mut egui::Ui, bar: Rect, out: &mut Out) {
     }
 }
 
-/// Fit a tab's panels in `available` points: full panels, then small buttons without labels
-/// (from the right), then panels collapsed to one button (from the right). Returns each panel's
-/// compact flag, full width, collapsed width and collapsed flag.
+/// Fit a tab's panels in `available` points. As on Windows, the panels people use most (Draw
+/// and Modify, see [`KEEP`]) hold their labels longest: the other panels first give up their
+/// small buttons' labels, then collapse to one button, both from the right; only then do the
+/// kept panels do the same. Returns each panel's compact flag, full width, collapsed width and
+/// collapsed flag.
 fn fit_panels(p: &egui::Painter, tab: &RibbonTab, available: f32) -> (Vec<bool>, Vec<f32>, Vec<f32>, Vec<bool>) {
-    // Fit: full panels, then small buttons without labels, then panels collapsed from the right.
-    // Panels give up their small buttons' labels one at a time from the right, as on Windows.
-    let mut compacts = vec![false; tab.panels.len()];
-    let mut widths: Vec<f32> = tab.panels.iter().map(|panel| panel_width(p, panel, false)).collect();
-    for i in (0..tab.panels.len()).rev() {
-        if widths.iter().sum::<f32>() <= available {
-            break;
-        }
-        if let (Some(c), Some(w), Some(panel)) = (compacts.get_mut(i), widths.get_mut(i), tab.panels.get(i)) {
-            *c = true;
-            *w = panel_width(p, panel, true);
-        }
-    }
+    let n = tab.panels.len();
+    let full: Vec<f32> = tab.panels.iter().map(|panel| panel_width(p, panel, false)).collect();
+    let compact_w: Vec<f32> = tab.panels.iter().map(|panel| panel_width(p, panel, true)).collect();
     let small: Vec<f32> = tab.panels.iter().map(|panel| collapsed_width(p, panel)).collect();
-    let mut collapsed = vec![false; tab.panels.len()];
-    let total = |collapsed: &[bool]| -> f32 { widths.iter().zip(&small).zip(collapsed).map(|((w, s), c)| if *c { *s } else { *w }).sum() };
-    for i in (0..tab.panels.len()).rev() {
-        if total(&collapsed) <= available {
+    let mut compacts = vec![false; n];
+    let mut collapsed = vec![false; n];
+    let width = |i: usize, compacts: &[bool], collapsed: &[bool]| -> f32 {
+        if collapsed.get(i).copied().unwrap_or(false) {
+            small.get(i).copied().unwrap_or(0.0)
+        } else if compacts.get(i).copied().unwrap_or(false) {
+            compact_w.get(i).copied().unwrap_or(0.0)
+        } else {
+            full.get(i).copied().unwrap_or(0.0)
+        }
+    };
+    let total = |compacts: &[bool], collapsed: &[bool]| -> f32 { (0..n).map(|i| width(i, compacts, collapsed)).sum() };
+    let kept = |i: usize| tab.panels.get(i).is_some_and(|panel| KEEP.contains(&panel.title));
+    // The steps, in order: (panel, collapse?) — compacting first, others before kept panels.
+    let mut steps: Vec<(usize, bool)> = Vec::with_capacity(4 * n);
+    for keep in [false, true] {
+        steps.extend((0..n).rev().filter(|&i| kept(i) == keep).map(|i| (i, false)));
+        steps.extend((0..n).rev().filter(|&i| kept(i) == keep).map(|i| (i, true)));
+    }
+    for (i, collapse) in steps {
+        if total(&compacts, &collapsed) <= available {
             break;
         }
-        if let Some(c) = collapsed.get_mut(i) {
-            *c = true;
+        let target = if collapse { collapsed.get_mut(i) } else { compacts.get_mut(i) };
+        if let Some(flag) = target {
+            *flag = true;
         }
     }
-
+    let widths: Vec<f32> =
+        (0..n)
+            .map(|i| {
+                if compacts.get(i).copied().unwrap_or(false) { compact_w.get(i).copied().unwrap_or(0.0) } else { full.get(i).copied().unwrap_or(0.0) }
+            })
+            .collect();
     (compacts, widths, small, collapsed)
 }
+
+/// Panels that keep their labels and stay expanded longest when the ribbon is short of room.
+const KEEP: &[&str] = &["Draw", "Modify"];
 
 /// The ribbon tab names and the minimize switch after them.
 fn ribbon_tabs(app: &mut CadApp, ui: &mut egui::Ui, area: Rect, active: usize) {

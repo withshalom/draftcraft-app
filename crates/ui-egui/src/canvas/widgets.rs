@@ -76,8 +76,12 @@ pub(super) fn draw_viewcube(app: &mut CadApp, ui: &mut egui::Ui, rect: Rect) {
     // WCS pill: the label and a down chevron, drawn as lines rather than a "⌄" glyph that a UI
     // font may lack (it showed as a box, #1541).
     let pill = Rect::from_center_size(c + vec2(0.0, ring + 26.0), vec2(56.0, 16.0));
-    p.rect_filled(pill, 8.0, Color32::from_rgb(0x48, 0x50, 0x5c));
-    let ink = Tokens::DARK.canvas_ink;
+    // A light pill under the ring, like the cube's colours, dimmed with it while the pointer is away.
+    let near = ui.rect_contains_pointer(l.bounds.union(pill));
+    let a = if near { 1.0 } else { 0.6 };
+    p.rect_filled(pill, 8.0, Color32::from_rgb(0xd4, 0xd7, 0xdc).gamma_multiply(a));
+    p.rect_stroke(pill, 8.0, Stroke::new(1.0, Color32::from_rgb(0x6e, 0x75, 0x7e).gamma_multiply(a)), egui::StrokeKind::Inside);
+    let ink = Color32::from_rgb(0x2e, 0x33, 0x3a).gamma_multiply(a);
     let label = p.layout_no_wrap(crate::tl!("WCS").to_string(), crate::theme::small(), ink);
     let (gap, chevron) = (4.0, 6.0);
     let left = pill.center().x - (label.size().x + gap + chevron) / 2.0;
