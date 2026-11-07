@@ -7,15 +7,17 @@ permissions:
 jobs:
   probe:
     runs-on: ubuntu-latest
+    environment: release
     steps:
-      - name: Token permissions and release creation
+      - name: Same call as the draft-release action (tag v1.0.0, generated notes, environment release)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "--- workflow permission setting"
-          gh api repos/$GITHUB_REPOSITORY/actions/permissions/workflow || true
-          echo "--- create a draft release at this commit"
-          gh api -i -X POST repos/$GITHUB_REPOSITORY/releases -f tag_name=probe-v0 -f name=probe -F draft=true -f target_commitish=$GITHUB_SHA || true
-          echo "--- list releases"
-          gh api repos/$GITHUB_REPOSITORY/releases --jq '.[]|"\(.id) \(.tag_name) draft=\(.draft)"' || true
-          for id in $(gh api repos/$GITHUB_REPOSITORY/releases --jq '.[]|select(.tag_name=="probe-v0")|.id'); do gh api -X DELETE repos/$GITHUB_REPOSITORY/releases/$id && echo "deleted probe $id"; done
+          echo "--- gh release create, exactly as the action does"
+          mkdir -p a && echo hi > a/x.txt && cd a
+          gh release create "v9.9.9" --draft --title "probe" --target "$GITHUB_SHA" --generate-notes -- x.txt || true
+          echo "--- same with the real tag v1.0.0"
+          gh release create "v1.0.0" --draft --title "probe" --target "$GITHUB_SHA" --generate-notes -- x.txt || true
+          echo "--- cleanup"
+          for t in v9.9.9 v1.0.0 probe-v0; do gh release delete "$t" --yes 2>&1 || true; done
+          gh api repos/$GITHUB_REPOSITORY/releases --jq '.[]|"left: \(.id) \(.tag_name)"' || true
