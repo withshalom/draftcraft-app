@@ -12,6 +12,7 @@ jobs:
       - name: Same call as the draft-release action (tag v1.0.0, generated notes, environment release)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
           echo "--- gh release create, exactly as the action does"
           mkdir -p a && echo hi > a/x.txt && cd a
