@@ -1,5 +1,7 @@
 name: probe-release
-on: workflow_dispatch
+on:
+  push:
+    branches: [probe-release]
 permissions:
   contents: write
 jobs:
