@@ -1,5 +1,5 @@
 # Builds RustDraft's browser version (apps/rustdraft-web, wasm via Trunk) and publishes it to GitHub Pages at
-# https://withshalom.github.io/rustdraft/ (Settings › Pages › Source: GitHub Actions).
+# https://rustcraft.draftcraft.dev/ (Settings › Pages › Source: GitHub Actions).
 # Runs for pushes to `autostyle` (the UI work) and to `web`, only in withshalom/rustdraft.
 # Same layout as DraftCraft's dwg-web-deploy and DRAWCraft's web-deploy.
 name: web-deploy
@@ -20,7 +20,7 @@ concurrency:
 
 # A custom domain, when there is one: set it here and point its DNS at GitHub Pages.
 env:
-  CUSTOM_DOMAIN: ""
+  CUSTOM_DOMAIN: rustcraft.draftcraft.dev
   TRUNK_VERSION: 0.21.14
   TRUNK_SHA256: f2b4680cd239693a646a2795e4633c625328d7b2a044fbe749fa3a2fe9e7036b
 
