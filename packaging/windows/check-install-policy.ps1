@@ -9,6 +9,8 @@ param([Parameter(Mandatory = $true)] [string] $MsiPath)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $policy = Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot 'install-policy.json') | ConvertFrom-Json
+# A Directory row's DefaultDir is `short|long` when the name needs a short form.
+function Get-LongName([string] $DefaultDir) { ($DefaultDir -split '\|')[-1] }
 function Read-Rows($Database, [string] $Sql, [int] $Columns) {
   $view = $Database.OpenView($Sql)
   try {
@@ -55,7 +57,7 @@ try {
     if ($properties['UpgradeCode'].Trim('{}') -ne $policy.upgradeCode) { throw 'Launcher upgrade identity changed.' }
     $dirs = @{}
     foreach ($row in (Read-Rows $database 'SELECT `Directory`, `Directory_Parent`, `DefaultDir` FROM `Directory`' 3)) { $dirs[$row[0]] = @($row[1],$row[2]) }
-    if ($dirs['INSTALLFOLDER'][0] -ne 'CraftSuiteFolder' -or $dirs['CraftSuiteFolder'][1] -ne 'RustDraft' -or
+    if ($dirs['INSTALLFOLDER'][0] -ne 'CraftSuiteFolder' -or (Get-LongName $dirs['CraftSuiteFolder'][1]) -ne 'RustDraft' -or
         $dirs['CraftSuiteFolder'][0] -ne 'LocalProgramsFolder' -or $dirs['LocalProgramsFolder'][0] -ne 'LocalAppDataFolder') {
       throw 'Launcher new-install folder must be under the per-user RustDraft suite root.'
     }
@@ -88,7 +90,7 @@ try {
     $directories[$row[0]] = @($row[1], $row[2])
   }
   if ($directories['INSTALLFOLDER'][0] -ne 'CraftSuiteFolder' -or
-      $directories['CraftSuiteFolder'][1] -ne 'RustDraft') { throw 'Expected the app under the RustDraft suite folder.' }
+      (Get-LongName $directories['CraftSuiteFolder'][1]) -ne 'RustDraft') { throw 'Expected the app under the RustDraft suite folder.' }
   $programs = $directories['CraftSuiteFolder'][0]
   if ($programs -eq 'ProgramFiles6432Folder') { $programs = $directories[$programs][0] }
   if ($programs -notin 'ProgramFilesFolder', 'ProgramFiles64Folder') {
