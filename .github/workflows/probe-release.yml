@@ -1,0 +1,19 @@
+name: probe-release
+on: workflow_dispatch
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Token permissions and release creation
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "--- workflow permission setting"
+          gh api repos/$GITHUB_REPOSITORY/actions/permissions/workflow || true
+          echo "--- create a draft release at this commit"
+          gh api -i -X POST repos/$GITHUB_REPOSITORY/releases -f tag_name=probe-v0 -f name=probe -F draft=true -f target_commitish=$GITHUB_SHA || true
+          echo "--- list releases"
+          gh api repos/$GITHUB_REPOSITORY/releases --jq '.[]|"\(.id) \(.tag_name) draft=\(.draft)"' || true
+          for id in $(gh api repos/$GITHUB_REPOSITORY/releases --jq '.[]|select(.tag_name=="probe-v0")|.id'); do gh api -X DELETE repos/$GITHUB_REPOSITORY/releases/$id && echo "deleted probe $id"; done
