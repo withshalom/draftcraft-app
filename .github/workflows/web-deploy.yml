@@ -1,12 +1,12 @@
 # Builds RustDraft's browser version (apps/rustdraft-web, wasm via Trunk) and publishes it to GitHub Pages at
 # https://withshalom.github.io/rustdraft/ (Settings › Pages › Source: GitHub Actions).
-# Runs for pushes to the `web` branch (which carries the autostyle UI), only in withshalom/rustdraft.
+# Runs for pushes to `autostyle` (the UI work) and to `web`, only in withshalom/rustdraft.
 # Same layout as DraftCraft's dwg-web-deploy and DRAWCraft's web-deploy.
 name: web-deploy
 
 on:
   push:
-    branches: [web]
+    branches: [autostyle, web]
   workflow_dispatch:
 
 permissions:
