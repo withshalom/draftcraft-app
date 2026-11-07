@@ -1097,7 +1097,7 @@ fn oversized_dwg_and_dxf_are_rejected_early() {
 
     let limits = rustdraft_dwg::Limits { max_dwg_bytes: 100_000, ..rustdraft_dwg::Limits::DEFAULT };
     let e = rustdraft_dwg::dwg_to_dxf_with(&dwg, limits).unwrap_err();
-    assert!(e.starts_with("DWG: the file is 0.") && e.ends_with("MB, larger than the 0.1 MB RustDraft opens"), "{e}");
+    assert!(e.starts_with("DWG: the file is 0.") && e.ends_with("MB, larger than the 0.1 MB DraftCraft opens"), "{e}");
 
     // Lines that aren't even group codes: the size is reported before anything is parsed.
     let text = "not a group code\nx\n".repeat(60);
