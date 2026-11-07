@@ -67,8 +67,10 @@ pub const UI_COMMANDS: &[(&str, &str, &[&str], Option<&str>)] = &[
     ("ui.dialog.parameters", "Parameters Manager", &["Window", "Parameters Manager"], None),
     ("ui.dialog.dsettings", "Drafting Settings...", &[], None),
     #[cfg(not(target_arch = "wasm32"))]
-    ("ui.dialog.about", "About RustDraft", &["Help", "About RustDraft"], None),
-    ("ui.dialog.commands", "Command Reference", &["Help", "RustDraft Help"], Some("F1")),
+    ("ui.dialog.about", "About DraftCraft", &["Help", "About DraftCraft"], None),
+    #[cfg(not(target_arch = "wasm32"))]
+    ("ui.updates.check", "Check for Updates...", &["Help", "Check for Updates..."], None),
+    ("ui.dialog.commands", "Command Reference", &["Help", "DraftCraft Help"], Some("F1")),
     ("ui.toggle.history", "Command History", &["Window", "Command History"], Some("F2")),
     ("ui.cmdline.lines", "Command Line History Lines", &[], None),
     ("ui.cmdline.clear", "Clear Command History", &[], None),
@@ -76,7 +78,7 @@ pub const UI_COMMANDS: &[(&str, &str, &[&str], Option<&str>)] = &[
     ("ui.dialog.find", "Find and Replace", &[], Some("Cmd+F")),
     ("ui.language", "Language", &[], None),
     ("ui.noop", "", &[], None),
-    ("ui.quit", "Quit RustDraft", &[], Some("Cmd+Q")),
+    ("ui.quit", "Quit DraftCraft", &[], Some("Cmd+Q")),
 ];
 
 pub fn is_ui_command(id: &str) -> bool {
@@ -469,7 +471,10 @@ fn run_ui_command_inner(app: &mut CadApp, id: &str, params: &Value) -> Option<Re
             Ok(Value::Null)
         }
         #[cfg(not(target_arch = "wasm32"))]
-        "ui.updates.check" => Err("RustDraft does not check for updates".to_string()),
+        "ui.updates.check" => {
+            crate::updates_ui::check_now(app);
+            Ok(Value::Null)
+        }
         "ui.dialog.close" => {
             app.ui.dialog = None;
             Ok(Value::Null)

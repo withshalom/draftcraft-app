@@ -63,7 +63,7 @@ impl App {
         };
         if let Err(error) = result {
             if self.workspace_error.as_ref() != Some(&error) {
-                eprintln!("RustDraft workspace: {error}");
+                eprintln!("DraftCraft workspace: {error}");
                 self.cad.set_status(format!("Workspace could not be saved: {error}"));
                 self.workspace_error = Some(error);
             }
@@ -212,7 +212,7 @@ fn restores_window() -> bool {
 fn window_options(restoring: bool) -> eframe::NativeOptions {
     eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_title("RustDraft")
+            .with_title("DraftCraft")
             .with_inner_size([1600.0, 1000.0])
             .with_min_inner_size([900.0, 560.0])
             .with_drag_and_drop(true)
@@ -280,7 +280,7 @@ fn main() -> eframe::Result {
     #[cfg(not(target_arch = "wasm32"))]
     if let Some(done) = craft_update::self_update::finish(&rustdraft_ui_egui::UPDATE_APP, &std::env::args_os().skip(1).collect::<Vec<_>>()) {
         if let Err(e) = done {
-            eprintln!("RustDraft update helper failed: {e}");
+            eprintln!("DraftCraft update helper failed: {e}");
             std::process::exit(1);
         }
         return Ok(());
@@ -374,7 +374,7 @@ fn main() -> eframe::Result {
             }
             app.set_system_cursor_default(vars.system_cursor == Switch::On);
             if let Some(error) = &workspace_error {
-                eprintln!("RustDraft workspace: {error}");
+                eprintln!("DraftCraft workspace: {error}");
                 app.set_status(error);
             }
             app.system_languages = vars.locale.map(|s| vec![s]).unwrap_or_else(|| sys_locale::get_locales().collect());
@@ -391,7 +391,6 @@ fn main() -> eframe::Result {
             // Autosave files (SAVEFILEPATH) default to `<settings dir>/autosave`.
             if let Some(dir) = &vars.config_dir {
                 app.enable_autosave(&dir.join("autosave"));
-                // RustDraft never checks the original RustDraft repository for updates.
                 // Startup LISP (acad.lsp, acaddoc.lsp) is read from `<settings>/support`; the
                 // folder is made so it is there to put them in.
                 let support = dir.join("support");
@@ -399,6 +398,11 @@ fn main() -> eframe::Result {
                     log::warn!("no LISP support folder {}: {e}", support.display());
                 }
                 app.session.set_lisp_support_dir(Some(support));
+            }
+            // Once at startup, ask GitHub whether a newer RustDraft is out (RUSTDRAFT_NO_UPDATE_CHECK=1
+            // turns it off, e.g. for scripted runs).
+            if std::env::var_os("RUSTDRAFT_NO_UPDATE_CHECK").is_none_or(|v| v.is_empty() || v == "0") {
+                app.enable_update_check();
             }
             app.integrated_titlebar = cfg!(target_os = "macos");
             if surface.present_mode == eframe::wgpu::PresentMode::AutoNoVsync {

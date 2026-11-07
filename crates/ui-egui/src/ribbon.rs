@@ -90,6 +90,8 @@ const ARC_MORE: &[Tool] = &[
 const RECT_MORE: &[Tool] = &[(Icon::Rectangle, "rectang", "Rectangle"), (Icon::Polygon, "polygon", "Polygon")];
 const ELLIPSE_MORE: &[Tool] =
     &[(Icon::Ellipse, "ellipse", "Center"), (Icon::Ellipse, "ellipse.axis", "Axis, End"), (Icon::Ellipse, "ellipse.arc", "Elliptical Arc")];
+const SPLINE_MORE: &[Tool] =
+    &[(Icon::Spline, "spline", "Spline Fit"), (Icon::Spline, "spline.cv", "Spline CV"), SEP, (Icon::Conic, "conic", "Conic")];
 const HATCH_MORE: &[Tool] = &[(Icon::Hatch, "hatch", "Hatch"), (Icon::Gradient, "gradient", "Gradient"), (Icon::Boundary, "boundary", "Boundary")];
 const TRIM_MORE: &[Tool] = &[(Icon::Trim, "trim", "Trim"), (Icon::Extend, "extend", "Extend")];
 const FILLET_MORE: &[Tool] = &[(Icon::Fillet, "fillet", "Fillet"), (Icon::Chamfer, "chamfer", "Chamfer"), (Icon::Spline, "blend", "Blend Curves")];
@@ -150,6 +152,7 @@ pub(crate) const TABS: &[RibbonTab] = &[
                         d(Icon::Ellipse, "ellipse", "Ellipse", ELLIPSE_MORE),
                         d(Icon::Hatch, "hatch", "Hatch", HATCH_MORE),
                     ]),
+                    Icons(&[d(Icon::Spline, "spline", "Spline Fit", SPLINE_MORE), b(Icon::Conic, "conic", "Conic")]),
                 ],
             },
             RibbonPanel {
@@ -914,7 +917,7 @@ fn paint_app_button(p: &egui::Painter, r: Rect, hovered: bool) {
     let fill = if hovered { Color32::from_rgb(0x2f, 0x7d, 0xf0) } else { Color32::from_rgb(0x1f, 0x6a, 0xd8) };
     let mark = Rect::from_min_size(r.min, vec2(r.height(), r.height()));
     p.rect_filled(mark, 3.0, fill);
-    p.text(mark.center(), Align2::CENTER_CENTER, "RD", FontId::proportional(r.height() * 0.5), Color32::WHITE);
+    p.text(mark.center(), Align2::CENTER_CENTER, "DC", FontId::proportional(r.height() * 0.5), Color32::WHITE);
     arrow(p, pos2(mark.right() + 7.0, r.center().y), Tokens::get().text_dim);
 }
 
@@ -1009,7 +1012,7 @@ fn app_bar(app: &mut CadApp, ui: &mut egui::Ui, bar: Rect, out: &mut Out) {
         ui.allocate_ui_with_layout(vec2(width, 30.0), egui::Layout::right_to_left(egui::Align::Center), |ui| {
             ui.spacing_mut().item_spacing.x = 8.0;
             ui.spacing_mut().button_padding = vec2(10.0, 4.0);
-            if ui.add(egui::Button::new(crate::tl!("Exit RustDraft")).frame(true)).clicked() {
+            if ui.add(egui::Button::new(crate::tl!("Exit DraftCraft")).frame(true)).clicked() {
                 out.command = Some("ui.quit");
                 ui.close();
             }
@@ -1089,8 +1092,8 @@ fn app_bar(app: &mut CadApp, ui: &mut egui::Ui, bar: Rect, out: &mut Out) {
     }
     // Window title, centred, between the toolbar and the search box.
     let title = match app.session.state() {
-        Ok(st) if !app.ui.start_tab => format!("RustDraft   {}{}", st.title, if st.title.contains('.') { "" } else { ".dwg" }),
-        _ => format!("RustDraft   {}", crate::tl!("Start")),
+        Ok(st) if !app.ui.start_tab => format!("DraftCraft   {}{}", st.title, if st.title.contains('.') { "" } else { ".dwg" }),
+        _ => format!("DraftCraft   {}", crate::tl!("Start")),
     };
     let galley = p.layout_no_wrap(title, FontId::proportional(13.0), t.text);
     let right_limit = if sr.left() > qat_end + 120.0 { sr.left() - 10.0 } else { bar.right() - 8.0 };

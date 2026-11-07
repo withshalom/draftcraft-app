@@ -8,12 +8,13 @@
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 #![forbid(unsafe_code)]
 
-/// RustDraft's identity for the update helper (update checks are off in RustDraft), with its 128 px icon and accent colour: the update
-/// prompt shows both, and an AppImage's menu entry gets the icon.
+/// RustDraft's identity for the update check: its GitHub repository (`SkryxDev/RustDraft`), whose
+/// newest release [`updates_ui`] offers, with its 128 px icon and accent colour.
 #[cfg(not(target_arch = "wasm32"))]
 pub const UPDATE_APP: craft_update::app::App = craft_update::app::App {
     icon_png: Some(include_bytes!("../../../assets/app-icon/hicolor/128x128/apps/dev.skryx.rustdraft.png")),
     accent: Some([0x3e, 0xa6, 0xe8]),
+    developer: "SkryxDev",
     ..craft_update::app::App::new("rustdraft", "RustDraft", "Computer-aided design and drafting", "SkryxDev/RustDraft")
 };
 
@@ -614,7 +615,7 @@ impl CadApp {
     pub fn open_size_error(name: &str, len: u64) -> Option<String> {
         (len > Self::MAX_OPEN_BYTES).then(|| {
             format!(
-                "Open: {name} is {:.1} MB, larger than the {} MB RustDraft opens in the browser",
+                "Open: {name} is {:.1} MB, larger than the {} MB DraftCraft opens in the browser",
                 len as f64 / 1048576.0,
                 Self::MAX_OPEN_BYTES >> 20
             )
@@ -1178,7 +1179,7 @@ mod tests {
     #[test]
     fn default_save_format_persists_and_names_new_drawings() {
         let mut a = app();
-        assert_eq!(a.ui.save_format, SaveFormat::Dxf, "default keeps DXF, RustDraft's native format");
+        assert_eq!(a.ui.save_format, SaveFormat::Dxf, "default keeps DXF, DraftCraft's native format");
         assert!(a.run("ui.saveformat", json!({ "format": "pdf" })).is_err());
         assert_eq!(a.run("ui.saveformat", json!({ "format": "DWG" })).ok(), Some(json!({ "saveFormat": "dwg" })));
         assert_eq!(a.run("ui.saveformat", json!({})).ok(), Some(json!({ "saveFormat": "dwg" })), "no format: report it");
